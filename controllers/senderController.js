@@ -1,5 +1,5 @@
 import prisma from "../config/db.js";
-import { sendSms } from './smsController.js'; 
+
 export const getAvailableFlights = async (req, res) => {
   try {
     const flights = await prisma.flight.findMany({

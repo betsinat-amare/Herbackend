@@ -1,34 +1,38 @@
 import prisma from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
 import crypto from 'crypto';
+
+// 📴 Removed sendSms import (no longer needed)
+// import { sendSms } from './smsController.js';
 
 export const register = async (req, res) => {
   try {
     const { fullName, email, password, phone, nationalID, role } = req.body;
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     const existingAgent = await prisma.agent.findUnique({ where: { email } });
 
     if (existingUser || existingAgent) {
       return res.status(400).json({ message: 'Email already registered.' });
     }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     let newUser;
+
     if (role === 'agent') {
       newUser = await prisma.agent.create({
         data: {
           fullName,
           email,
           password: hashedPassword,
-          role: 'agent', 
+          role: 'agent',
         },
       });
     } else {
-      // ===== REMOVED APPROVAL LOGIC =====
-      // All users are automatically approved now
+      // ✅ All users are automatically approved now
       newUser = await prisma.user.create({
         data: {
           fullName,
@@ -39,19 +43,19 @@ export const register = async (req, res) => {
           role,
           phoneVerified: false,
           nationalIDVerified: false,
-          isApproved: true, // ✅ Changed: Auto-approve all users
+          isApproved: true,
         },
       });
 
-      // ===== OTP LOGIC (Still present but bypassed on frontend) =====
-      const otp = crypto.randomInt(100000, 999999).toString();
-      const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
-      await prisma.user.update({
-        where: { id: newUser.id },
-        data: { otpCode: otp, otpExpiry: expiryTime },
-      });
+      // 🚫 Removed OTP logic (no SMS verification)
+      // const otp = crypto.randomInt(100000, 999999).toString();
+      // const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
+      // await prisma.user.update({
+      //   where: { id: newUser.id },
+      //   data: { otpCode: otp, otpExpiry: expiryTime },
+      // });
 
-      await sendSms(phone, `Your FlightBridge verification code is ${otp}`);
+      // await sendSms(phone, `Your FlightBridge verification code is ${otp}`);
     }
 
     const token = jwt.sign(
@@ -115,28 +119,12 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email or password.' });
     }
 
-    // ===== REMOVED APPROVAL CHECK =====
-    // Users no longer need admin approval to log in
-    // if (role !== 'receiver' && role !== 'agent' && !user.isApproved) {
-    //   return res.status(403).json({
-    //     message: 'Your account is pending agent approval. Please wait for approval before logging in.',
-    //   });
-    // }
-
-    // ===== REMOVED PHONE VERIFICATION CHECK =====
-    // Users can log in without verifying phone
-    // if ((role === 'sender' || role === 'carrier') && !user.phoneVerified) {
-    //   return res.status(403).json({
-    //     message: 'Please verify your phone number before logging in.',
-    //   });
-    // }
-
     const token = jwt.sign(
       { id: user.id, role: user.role || role },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
-    
+
     res.status(200).json({
       token,
       id: user.id,
@@ -148,8 +136,7 @@ export const login = async (req, res) => {
   }
 };
 
-// ===== KEPT FOR FUTURE USE =====
-// You can still approve users manually if needed later
+// ===== Optional: admin utilities =====
 export const approveUser = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -166,8 +153,6 @@ export const approveUser = async (req, res) => {
   }
 };
 
-// ===== KEPT FOR FUTURE USE =====
-// Still returns pending users in case you want to re-enable approval later
 export const getPendingUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({

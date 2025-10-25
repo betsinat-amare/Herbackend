@@ -1,7 +1,7 @@
 import prisma from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendSms } from './smsController.js';
+
 import crypto from 'crypto';
 
 export const register = async (req, res) => {
